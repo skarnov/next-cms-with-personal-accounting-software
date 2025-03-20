@@ -34,7 +34,6 @@ const skills = {
   devops: [
     { name: "Docker", icon: <icons.FaDocker className={iconClass} aria-label="Docker" />, description: "Experienced in containerizing applications with Docker, ensuring consistency across environments and simplifying deployment." },
     { name: "CI/CD Implementation", icon: <icons.SiGithubactions className={iconClass} aria-label="CI/CD Implementation" />, description: "Proficient in implementing automated CI/CD pipelines for continuous integration, testing, and deployment to streamline development workflows." },
-    { name: "Jenkins", icon: <icons.SiJenkins className={iconClass} aria-label="Jenkins" />, description: "Skilled in Jenkins for setting up and managing CI/CD pipelines, automating testing, integration, and deployment processes." },
     { name: "AWS", icon: <icons.FaAws className={iconClass} aria-label="AWS" />, description: "Proficient in AWS cloud services, including EC2, S3, Lambda, and RDS, for building scalable, secure, and cost-effective cloud applications." },
     { name: "DigitalOcean", icon: <icons.SiDigitalocean className={iconClass} aria-label="DigitalOcean" />, description: "Skilled in deploying applications on DigitalOcean, utilizing Droplets, Kubernetes, and managed databases for scalable hosting solutions." },
     { name: "GCP", icon: <icons.SiGooglecloud className={iconClass} aria-label="GCP" />, description: "Proficient in Google Cloud Platform (GCP), including services like Compute Engine, Cloud Storage, and Kubernetes Engine for building and managing cloud infrastructure." },
