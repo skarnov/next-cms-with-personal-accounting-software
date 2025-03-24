@@ -43,10 +43,11 @@ const skills = {
     { name: "TypeScript", icon: <icons.SiTypescript className={iconClass} aria-label="TypeScript" />, description: "Strong knowledge of TypeScript, including advanced types, interfaces, and generics for building scalable and maintainable applications." },
     { name: "Design Pattern", icon: <icons.FaProjectDiagram className={iconClass} aria-label="Design Pattern" />, description: "Strong understanding of software design patterns, specializing in creating scalable and maintainable architecture." },
   ],
-  other: [
-    { name: "SEO", icon: <icons.FaSearch className={iconClass} aria-label="SEO" />, description: "Proficient in Search Engine Optimization (SEO), including on-page optimization, keyword research, and technical SEO to improve website visibility and rankings." },
-    { name: "WordPress Theme Development", icon: <icons.FaWordpress className={iconClass} aria-label="WordPress Theme Development" />, description: "Experienced in developing custom WordPress themes, ensuring responsive design, cross-browser compatibility, and adherence to WordPress coding standards." },
-  ],
+  testing: [
+    { name: "Git & GitHub", icon: <icons.FaGit className={iconClass} aria-label="Git & GitHub" />, description: "Experienced in version control with Git and GitHub, including branching, merging, and collaborating on code with teams." },
+    { name: "TypeScript", icon: <icons.SiTypescript className={iconClass} aria-label="TypeScript" />, description: "Strong knowledge of TypeScript, including advanced types, interfaces, and generics for building scalable and maintainable applications." },
+    { name: "Design Pattern", icon: <icons.FaProjectDiagram className={iconClass} aria-label="Design Pattern" />, description: "Strong understanding of software design patterns, specializing in creating scalable and maintainable architecture." },
+  ]
 };
 
 const allSkills = Object.values(skills).flat();
