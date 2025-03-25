@@ -1,7 +1,7 @@
 import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import mysql from "mysql2/promise";
 import bcrypt from "bcryptjs";
+import pool from "@/lib/db";
 
 const authOptions = {
   session: {
@@ -15,18 +15,11 @@ const authOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        let connection;
         try {
-          const db = await mysql.createConnection({
-            host: "localhost",
-            user: "root",
-            password: "",
-            database: "db_me",
-          });
+          connection = await pool.getConnection();
 
-          // Query the user by email
-          const [users] = await db.execute("SELECT * FROM admins WHERE email = ? LIMIT 1", [credentials.email]);
-
-          await db.end(); // Close the database connection
+          const [users] = await connection.query("SELECT * FROM admins WHERE email = ? LIMIT 1", [credentials.email]);
 
           if (users.length === 0) {
             throw new Error("Invalid credentials");
@@ -34,19 +27,21 @@ const authOptions = {
 
           const user = users[0];
 
-          // Validate password
           const isValid = await bcrypt.compare(credentials.password, user.password);
           if (!isValid) {
             throw new Error("Invalid credentials");
           }
 
           return {
-            id: user.id,
-            name: user.user_name, // Using first_name as name
+            id: user.id.toString(),
+            name: user.user_name,
             email: user.email,
           };
         } catch (error) {
+          console.error("Authentication error:", error);
           throw new Error("Authentication failed: " + error.message);
+        } finally {
+          if (connection) connection.release();
         }
       },
     }),
@@ -66,6 +61,7 @@ const authOptions = {
   pages: {
     signIn: "/login",
   },
+  secret: process.env.NEXTAUTH_SECRET,
 };
 
 const handler = NextAuth(authOptions);

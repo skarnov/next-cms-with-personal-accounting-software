@@ -2,7 +2,7 @@
 import { useSession, signOut } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiHome, FiTrendingUp, FiDollarSign, FiLogOut } from "react-icons/fi";
+import { FiHome, FiTrendingUp, FiFileText, FiLogOut, FiFolder, FiSettings, FiTrendingDown } from "react-icons/fi";
 import { LineChart, Line, ResponsiveContainer, Tooltip } from "recharts";
 
 const cashbookData = [{ value: 3000 }, { value: 100 }, { value: 5000 }];
@@ -13,6 +13,8 @@ export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [isCashbookDropdownOpen, setIsCashbookDropdownOpen] = useState(false);
+  const [isConfigDropdownOpen, setIsConfigDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -28,7 +30,6 @@ export default function DashboardPage() {
 
   return (
     <div className="flex min-h-screen bg-gray-900">
-      {/* Sidebar */}
       <aside className="w-64 bg-gray-800 shadow-lg flex flex-col">
         <div className="p-5 text-center text-white text-xl font-bold tracking-wide border-b border-gray-700">Lime CMS</div>
         <nav className="flex-1 mt-4">
@@ -40,15 +41,21 @@ export default function DashboardPage() {
               </a>
             </li>
             <li>
-              <a href="/incomes" className="flex items-center p-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white">
+              <a href="/incomes" className="flex items-center p-3 rounded-lg text-white hover:bg-gray-700">
                 <FiTrendingUp className="mr-3 text-lg" />
                 Incomes
               </a>
             </li>
             <li>
-              <a href="/expenses" className="flex items-center p-3 rounded-lg text-gray-300 hover:bg-gray-700 hover:text-white">
-                <FiDollarSign className="mr-3 text-lg" />
+              <a href="/expenses" className="flex items-center p-3 rounded-lg text-white hover:bg-gray-700">
+                <FiTrendingDown className="mr-3 text-lg" />
                 Expenses
+              </a>
+            </li>
+            <li>
+              <a href="/cashbook" className="flex items-center p-3 rounded-lg text-white hover:bg-gray-700">
+                <FiFolder className="mr-3 text-lg" />
+                Cashbook
               </a>
             </li>
           </ul>
