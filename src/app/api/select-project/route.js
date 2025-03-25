@@ -19,7 +19,7 @@ export async function GET(req) {
   }
 
   try {
-    const project = await Project.findBySlug(slug);
+    const project = await Project.findBySlug(slug, includeRelated);
 
     if (!project) {
       return new Response(

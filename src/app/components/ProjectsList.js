@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import ViewMoreProject from "./ViewMoreProject";
+import ViewMoreProjects from "./ViewMoreProjects";
 
 function ProjectCard({ project }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -84,7 +84,7 @@ export default function ProjectsList({ initialProjects, totalProjects }) {
             Showing {visibleProjects.length} of {totalProjects} projects
           </div>
 
-          {totalProjects > 9 && <ViewMoreProject showAll={visibleCount >= totalProjects} onClick={visibleCount >= totalProjects ? handleShowLess : handleViewMore} loading={loading} />}
+          {totalProjects > 9 && <ViewMoreProjects showAll={visibleCount >= totalProjects} onClick={visibleCount >= totalProjects ? handleShowLess : handleViewMore} loading={loading} />}
         </>
       )}
     </>

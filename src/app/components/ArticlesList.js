@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import ViewMoreArticles from "./ViewMoreArticles";
 
 function ArticleCard({ article, onViewClick, loadingArticle }) {
   return (
@@ -74,11 +75,7 @@ export default function ArticlesList({ initialArticles, totalArticles }) {
         Showing {visibleArticles.length} of {totalArticles} articles
       </div>
 
-      {totalArticles > 9 && (
-        <button onClick={visibleCount >= totalArticles ? handleShowLess : handleViewMore} className="mt-4 bg-lime-500 hover:bg-lime-400 text-white px-6 py-2 rounded-lg font-semibold transition-colors" disabled={loading}>
-          {loading ? "Loading..." : visibleCount >= totalArticles ? "Show Less" : "View More"}
-        </button>
-      )}
+      {totalArticles > 9 && <ViewMoreArticles showAll={visibleCount >= totalArticles} onClick={visibleCount >= totalArticles ? handleShowLess : handleViewMore} loading={loading} />}
     </>
   );
 }

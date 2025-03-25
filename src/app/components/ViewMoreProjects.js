@@ -1,4 +1,4 @@
-export default function ViewMoreProject({ showAll, onClick, loading }) {
+export default function ViewMoreProjects({ showAll, onClick, loading }) {
   return (
     <div className="flex justify-center mt-8">
       <button
