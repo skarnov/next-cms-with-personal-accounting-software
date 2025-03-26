@@ -107,6 +107,16 @@ class Message {
       throw new Error("Failed to delete message.");
     }
   }
+
+  static async countUnseen() {
+    try {
+      const [rows] = await pool.query("SELECT COUNT(*) AS unseenCount FROM messages WHERE status = 'unseen'");
+      return rows[0].unseenCount;
+    } catch (error) {
+      console.error("Error counting unseen messages:", error);
+      throw new Error("Failed to count unseen messages.");
+    }
+  }
 }
 
 export default Message;
