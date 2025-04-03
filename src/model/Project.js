@@ -5,7 +5,6 @@ import slugify from "slugify";
 class Project {
   static async activeProject(offset = 0, limit = 9) {
     try {
-      // Fetch projects with pagination first
       const query = `
         SELECT 
           p.id AS project_id,
@@ -23,7 +22,6 @@ class Project {
       `;
       const [projectsRows] = await pool.query(query, [limit, offset]);
 
-      // Fetch total number of active projects
       const countQuery = `
         SELECT 
           COUNT(*) AS total
@@ -35,10 +33,8 @@ class Project {
       const [totalRows] = await pool.query(countQuery);
       const totalProjects = totalRows[0].total;
 
-      // Prepare a map for projects to handle tags later
       const projectsMap = new Map();
 
-      // Fetch tags for those projects
       const tagsQuery = `
         SELECT 
           p.id AS project_id,
@@ -57,7 +53,6 @@ class Project {
       const projectIds = projectsRows.map((project) => project.project_id);
       const [tagsRows] = await pool.query(tagsQuery, [projectIds]);
 
-      // Populate projects with tags
       projectsRows.forEach((project) => {
         projectsMap.set(project.project_id, {
           ...project,
@@ -75,12 +70,10 @@ class Project {
         }
       });
 
-      // Convert the map to an array of projects
       const projects = Array.from(projectsMap.values()).map((project) => ({
         ...project,
       }));
 
-      // Return projects and total count
       return {
         projects,
         totalProjects,
@@ -93,7 +86,6 @@ class Project {
 
   static async findBySlug(slug, includeRelated = false) {
     try {
-      // Fetch Project Details
       const [projectRows] = await pool.query(
         `
         SELECT id, name, slug, image, summary, description, status, 
@@ -105,14 +97,12 @@ class Project {
         [slug]
       );
 
-      // If no project is found, throw an error
       if (projectRows.length === 0) {
         throw new Error("Project not found.");
       }
 
       const project = projectRows[0];
 
-      // Fetch Tags For The Project
       const [tagRows] = await pool.query(
         `
         SELECT t.id, t.name, t.slug 
@@ -123,7 +113,6 @@ class Project {
         [project.id]
       );
 
-      // Fetch Related Projects (if requested)
       let relatedProjects = [];
       if (includeRelated) {
         const [relatedProjectRows] = await pool.query(
@@ -140,7 +129,6 @@ class Project {
           [project.id, project.id]
         );
 
-        // Fetch Tags For Related Projects
         for (const relatedProject of relatedProjectRows) {
           const [tags] = await pool.query(
             `
@@ -160,7 +148,6 @@ class Project {
         relatedProjects = relatedProjectRows;
       }
 
-      // Sanitize and return the project data
       const sanitizedProject = {
         ...project,
         name: xss(project.name),
@@ -184,7 +171,6 @@ class Project {
   static async create(projectData) {
     const { name, email } = projectData;
 
-    // Validate inputs
     if (!name || typeof name !== "string" || name.trim() === "") {
       throw new Error("Name is required and must be a non-empty string.");
     }
@@ -193,11 +179,9 @@ class Project {
       throw new Error("Email is required and must be a valid email address.");
     }
 
-    // Sanitize inputs
     const sanitizedName = xss(name);
     const sanitizedEmail = xss(email);
 
-    // Generate a slug
     const slug = slugify(sanitizedName, { lower: true, strict: true });
 
     try {

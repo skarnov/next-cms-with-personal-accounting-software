@@ -5,7 +5,6 @@ import slugify from "slugify";
 class Article {
   static async activeArticle(offset = 0, limit = 9) {
     try {
-      // Fetch articles with pagination first
       const query = `
         SELECT 
           a.id AS article_id,
@@ -23,7 +22,6 @@ class Article {
       `;
       const [articlesRows] = await pool.query(query, [limit, offset]);
 
-      // Fetch total number of active articles
       const countQuery = `
         SELECT 
           COUNT(*) AS total
@@ -35,10 +33,8 @@ class Article {
       const [totalRows] = await pool.query(countQuery);
       const totalArticles = totalRows[0].total;
 
-      // Prepare a map for articles to handle tags later
       const articlesMap = new Map();
 
-      // Fetch tags for those articles
       const tagsQuery = `
         SELECT 
           a.id AS article_id,
@@ -57,7 +53,6 @@ class Article {
       const articleIds = articlesRows.map((article) => article.article_id);
       const [tagsRows] = await pool.query(tagsQuery, [articleIds]);
 
-      // Populate articles with tags
       articlesRows.forEach((article) => {
         articlesMap.set(article.article_id, {
           ...article,
@@ -75,14 +70,12 @@ class Article {
         }
       });
 
-      // Convert the map to an array of articles
       const articles = Array.from(articlesMap.values()).map((article) => ({
         ...article,
         article_title: xss(article.article_title),
         article_summary: xss(article.article_summary),
       }));
 
-      // Return articles and total count
       return {
         articles,
         totalArticles,
@@ -95,7 +88,6 @@ class Article {
 
   static async findBySlug(slug, includeRelated = false) {
     try {
-      // Fetch Article Details
       const [articleRows] = await pool.query(
         `
         SELECT id, title, slug, image, summary, description, status, 
@@ -107,14 +99,12 @@ class Article {
         [slug]
       );
 
-      // If no article is found, throw an error
       if (articleRows.length === 0) {
         throw new Error("Article not found.");
       }
 
       const article = articleRows[0];
 
-      // Fetch Tags For The Article
       const [tagRows] = await pool.query(
         `
         SELECT t.id, t.name, t.slug 
@@ -125,7 +115,6 @@ class Article {
         [article.id]
       );
 
-      // Fetch Related Articles (if requested)
       let relatedArticles = [];
       if (includeRelated) {
         const [relatedArticleRows] = await pool.query(
@@ -142,7 +131,6 @@ class Article {
           [article.id, article.id]
         );
 
-        // Fetch Tags For Related Articles
         for (const relatedArticle of relatedArticleRows) {
           const [tags] = await pool.query(
             `
@@ -162,12 +150,11 @@ class Article {
         relatedArticles = relatedArticleRows;
       }
 
-      // Sanitize and return the article data
       const sanitizedArticle = {
         ...article,
         title: xss(article.title),
         summary: xss(article.summary),
-        description: xss(article.description), // Use `description` instead of `content`
+        description: xss(article.description),
         tags: tagRows.map((tag) => ({
           id: tag.id,
           name: xss(tag.name),
@@ -212,7 +199,6 @@ class Article {
   static async update(id, articleData) {
     const { title, summary, image } = articleData;
 
-    // Validate inputs
     if (!title || typeof title !== "string" || title.trim() === "") {
       throw new Error("Title is required and must be a non-empty string.");
     }
@@ -221,12 +207,10 @@ class Article {
       throw new Error("Summary is required and must be a non-empty string.");
     }
 
-    // Sanitize inputs
     const sanitizedTitle = xss(title);
     const sanitizedSummary = xss(summary);
     const sanitizedImage = xss(image);
 
-    // Generate a new slug if the title has changed
     const slug = slugify(sanitizedTitle, { lower: true, strict: true });
 
     try {

@@ -6,7 +6,6 @@ class Message {
     try {
       const [rows] = await pool.query("SELECT * FROM messages");
 
-      // Sanitize the output to prevent XSS
       return rows.map((row) => ({
         ...row,
         subject: xss(row.subject),
@@ -27,7 +26,6 @@ class Message {
         throw new Error("Message not found.");
       }
 
-      // Sanitize the output to prevent XSS
       return {
         ...rows[0],
         subject: xss(rows[0].subject),
@@ -43,7 +41,6 @@ class Message {
   static async create(messageData) {
     const { subject, email, message } = messageData;
 
-    // Validate inputs
     if (!subject || typeof subject !== "string" || subject.trim() === "") {
       throw new Error("Subject is required and must be a non-empty string.");
     }
@@ -56,7 +53,6 @@ class Message {
       throw new Error("Message is required and must be a non-empty string.");
     }
 
-    // Sanitize inputs
     const sanitizedSubject = xss(subject);
     const sanitizedEmail = xss(email);
     const sanitizedMessage = xss(message);
@@ -73,7 +69,6 @@ class Message {
   static async update(id, messageData) {
     const { subject, email, message } = messageData;
 
-    // Validate inputs
     if (!subject || typeof subject !== "string" || subject.trim() === "") {
       throw new Error("Subject is required and must be a non-empty string.");
     }
@@ -86,7 +81,6 @@ class Message {
       throw new Error("Message is required and must be a non-empty string.");
     }
 
-    // Sanitize inputs
     const sanitizedSubject = xss(subject);
     const sanitizedEmail = xss(email);
     const sanitizedMessage = xss(message);

@@ -72,29 +72,12 @@ export default function ExpensesPage() {
     return `/api/expenses?page=${pageIndex + 1}${debouncedSearchTerm ? `&search=${encodeURIComponent(debouncedSearchTerm)}` : ""}`;
   };
 
-  // Update your SWR hook to handle the new response format
-  const { data, error, size, setSize, mutate } = useSWRInfinite(
-    getKey,
-    async (url) => {
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `Bearer ${session?.accessToken}`,
-        },
-      });
-      if (!res.ok) {
-        const error = new Error("Failed to fetch data");
-        error.info = await res.json();
-        throw error;
-      }
-      return res.json();
-    },
-    {
-      revalidateFirstPage: false,
-    }
-  );
+  const { data, error, size, setSize, mutate } = useSWRInfinite(getKey, fetcher, {
+    revalidateFirstPage: false,
+  });
 
-  // Update your data flattening:
-  const allExpenses = data ? data.flatMap((page) => page) : [];
+  // Flatten all pages into a single array
+  const allExpenses = data ? data.flatMap((page) => page.data) : [];
   const isLoadingInitialData = !data && !error;
   const isLoadingMore = size > 0 && data && typeof data[size - 1] === "undefined";
   const isEmpty = data?.[0]?.data?.length === 0;
@@ -104,10 +87,7 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     if (wallets && wallets.length > 0) {
-      setFormData((prev) => ({
-        ...prev,
-        walletId: prev.walletId || wallets[0].id,
-      }));
+      setFormData(prev => ({ ...prev, walletId: wallets[0].id }));
     }
   }, [wallets]);
 
@@ -158,14 +138,13 @@ export default function ExpensesPage() {
     setErrorMessage(null);
     setIsModalOpen(true);
   };
-
-  // Update the openEditModal function:
+  
   const openEditModal = (expense) => {
     setCurrentExpense(expense);
     setFormData({
       description: expense.description,
       amount: expense.amount.toString(),
-      walletId: expense.wallet_id || null, // Changed from fk_wallet_id
+      walletId: expense.fk_wallet_id || expense.wallet_id || null,
       currency: expense.currency || DEFAULT_CURRENCY,
       date: new Date(expense.created_at),
     });
@@ -194,29 +173,23 @@ export default function ExpensesPage() {
         description: formData.description.trim(),
         amount: parseFloat(formData.amount),
         currency: formData.currency,
-        wallet_id: formData.walletId || null,
-        date: formData.date.toISOString(), // The model will handle the date conversion
+        created_at: formData.date.toISOString(),
+        userId: session?.user?.id,
+        fk_wallet_id: formData.walletId || null,
       };
 
-      const url = currentExpense ? `/api/expenses/${currentExpense.id}` : "/api/expenses";
-
-      const method = currentExpense ? "PUT" : "POST";
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.accessToken}`, // If using token-based auth
-        },
+      const response = await fetch(currentExpense ? `/api/expenses/${currentExpense.id}` : "/api/expenses", {
+        method: currentExpense ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
       });
 
+      const result = await response.json();
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to save expense");
+        throw new Error(result.error || "Failed to save expense");
       }
 
-      mutate(); // Refresh the data
+      mutate();
       setIsModalOpen(false);
     } catch (error) {
       console.error("Error:", error);
@@ -226,29 +199,23 @@ export default function ExpensesPage() {
     }
   };
 
-  // Update the confirmDelete function:
   const confirmDelete = async () => {
     if (!expenseToDelete) return;
-
     setIsDeleting(true);
     try {
       const response = await fetch(`/api/expenses/${expenseToDelete.id}`, {
         method: "DELETE",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.accessToken}`,
         },
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete expense");
-      }
-
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Failed to delete expense");
       mutate();
       setDeleteModalOpen(false);
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error deleting expense:", error);
       setErrorMessage(error.message || "Failed to delete expense");
     } finally {
       setIsDeleting(false);
@@ -396,7 +363,13 @@ export default function ExpensesPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-1">Wallet</label>
-                      <select name="walletId" className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-white" value={formData.walletId ?? ""} onChange={(e) => setFormData({ ...formData, walletId: e.target.value ? parseInt(e.target.value) : null })} disabled={isSubmitting || !wallets}>
+                      <select 
+                        name="walletId" 
+                        className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-white" 
+                        value={formData.walletId || ""} 
+                        onChange={(e) => setFormData({ ...formData, walletId: e.target.value ? parseInt(e.target.value) : null })}
+                        disabled={isSubmitting || !wallets}
+                      >
                         <option value="">No wallet</option>
                         {wallets?.map((wallet) => (
                           <option key={wallet.id} value={wallet.id}>
@@ -408,19 +381,19 @@ export default function ExpensesPage() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-1">Date</label>
-                      {formData.date && <DatePicker selected={formData.date} onChange={(date) => setFormData({ ...formData, date })} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-white" dateFormat="MMMM d, yyyy" disabled={isSubmitting} />}
+                      {formData.date && (
+                        <DatePicker
+                          selected={formData.date}
+                          onChange={(date) => setFormData({ ...formData, date })}
+                          className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-white"
+                          dateFormat="MMMM d, yyyy"
+                          disabled={isSubmitting}
+                        />
+                      )}
                     </div>
                   </div>
 
-                  {errorMessage && (
-                    <div className="p-4 mb-4 text-red-400 bg-red-900/30 rounded-lg border border-red-800">
-                      <div className="flex items-center gap-2">
-                        <FiAlertTriangle />
-                        <span>{errorMessage}</span>
-                      </div>
-                      {error?.info?.details && <div className="mt-2 text-sm text-red-300">{error.info.details}</div>}
-                    </div>
-                  )}
+                  {errorMessage && <div className="text-red-500 text-sm">{errorMessage}</div>}
 
                   <div className="flex justify-end gap-3 pt-4">
                     <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition flex items-center gap-2" disabled={isSubmitting}>

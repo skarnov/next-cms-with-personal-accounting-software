@@ -6,7 +6,6 @@ export async function GET(request) {
     const offset = parseInt(searchParams.get("offset")) || 0;
     const limit = parseInt(searchParams.get("limit")) || 9;
 
-    // Fetch articles with pagination
     const { articles, totalArticles } = await Article.activeArticle(offset, limit);
     return Response.json({ articles, totalArticles });
   } catch (error) {
