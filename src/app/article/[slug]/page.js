@@ -4,7 +4,7 @@ import RelatedArticlesSidebar from "../../components/RelatedArticlesSidebar";
 
 async function fetchArticleDetails(slug) {
   const baseURL = process.env.NEXT_PUBLIC_PUBLIC_URL || process.env.NEXT_PUBLIC_LOCAL_URL;
-  const res = await fetch(`${baseURL}/api/select-article?slug=${slug}&includeRelated=true`, {
+  const res = await fetch(`${baseURL}/api/articles/${slug}?includeRelated=true`, {
     cache: "no-store",
   });
 
