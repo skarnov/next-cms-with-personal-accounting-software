@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import Expense from "@/models/Expense";
+import Expense from "@/model/Expense";
 
 export async function GET(request) {
   const session = await getServerSession(authOptions);

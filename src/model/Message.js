@@ -2,114 +2,235 @@ import pool from "../lib/db";
 import xss from "xss";
 
 class Message {
+  /**
+   * Get all messages
+   * @returns {Promise<Array>} List of messages
+   */
   static async findAll() {
     try {
-      const [rows] = await pool.query("SELECT * FROM messages");
+      const [rows] = await pool.query(
+        `SELECT id, subject, email, message, status, 
+                created_at, updated_at 
+         FROM messages`
+      );
 
-      return rows.map((row) => ({
-        ...row,
-        subject: xss(row.subject),
-        email: xss(row.email),
-        message: xss(row.message),
-      }));
+      return rows.map((row) => this.sanitize(row));
     } catch (error) {
-      console.error("Error fetching all messages:", error);
-      throw new Error("Failed to fetch messages.");
+      console.error("Message.findAll error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      throw new Error("Failed to fetch messages");
     }
   }
 
+  /**
+   * Find message by ID
+   * @param {number} id - Message ID
+   * @returns {Promise<Object>} Message object
+   */
   static async findById(id) {
     try {
-      const [rows] = await pool.query("SELECT * FROM messages WHERE id = ?", [id]);
-
-      if (rows.length === 0) {
-        throw new Error("Message not found.");
+      if (!Number.isInteger(Number(id))) {
+        throw new Error("Invalid message ID format");
       }
 
-      return {
-        ...rows[0],
-        subject: xss(rows[0].subject),
-        email: xss(rows[0].email),
-        message: xss(rows[0].message),
-      };
+      const [rows] = await pool.query(
+        `SELECT id, subject, email, message, status, 
+                created_at, updated_at 
+         FROM messages 
+         WHERE id = ? 
+         LIMIT 1`,
+        [id]
+      );
+
+      if (rows.length === 0) {
+        throw new Error("Message not found");
+      }
+
+      return this.sanitize(rows[0]);
     } catch (error) {
-      console.error("Error fetching message by ID:", error);
-      throw new Error("Failed to fetch message.");
+      console.error("Message.findById error:", {
+        id,
+        error: error.message,
+        stack: error.stack,
+      });
+      throw error;
     }
   }
 
+  /**
+   * Create a new message
+   * @param {Object} messageData - Message data
+   * @param {string} messageData.subject - Message subject
+   * @param {string} messageData.email - Sender email
+   * @param {string} messageData.message - Message content
+   * @returns {Promise<number>} ID of created message
+   */
   static async create(messageData) {
-    const { subject, email, message } = messageData;
-
-    if (!subject || typeof subject !== "string" || subject.trim() === "") {
-      throw new Error("Subject is required and must be a non-empty string.");
-    }
-
-    if (!email || typeof email !== "string" || !email.includes("@")) {
-      throw new Error("Email is required and must be a valid email address.");
-    }
-
-    if (!message || typeof message !== "string" || message.trim() === "") {
-      throw new Error("Message is required and must be a non-empty string.");
-    }
-
-    const sanitizedSubject = xss(subject);
-    const sanitizedEmail = xss(email);
-    const sanitizedMessage = xss(message);
-
+    let connection;
     try {
-      const [result] = await pool.query("INSERT INTO messages (subject, email, message, created_at) VALUES (?, ?, ?, ?)", [sanitizedSubject, sanitizedEmail, sanitizedMessage, new Date()]);
+      connection = await pool.getConnection();
+
+      const cleanData = this.sanitizeMessageData(messageData);
+
+      const [result] = await connection.query(
+        `INSERT INTO messages 
+         (subject, email, message, created_at) 
+         VALUES (?, ?, ?, NOW())`,
+        [cleanData.subject, cleanData.email, cleanData.message]
+      );
+
       return result.insertId;
     } catch (error) {
-      console.error("Error creating message:", error);
-      throw new Error("Failed to create message.");
+      console.error("Message.create error:", {
+        messageData,
+        error: error.message,
+        stack: error.stack,
+      });
+      throw new Error(error.message || "Failed to create message");
+    } finally {
+      if (connection) connection.release();
     }
   }
 
+  /**
+   * Update a message
+   * @param {number} id - Message ID
+   * @param {Object} messageData - Message data
+   * @returns {Promise<void>}
+   */
   static async update(id, messageData) {
-    const { subject, email, message } = messageData;
-
-    if (!subject || typeof subject !== "string" || subject.trim() === "") {
-      throw new Error("Subject is required and must be a non-empty string.");
-    }
-
-    if (!email || typeof email !== "string" || !email.includes("@")) {
-      throw new Error("Email is required and must be a valid email address.");
-    }
-
-    if (!message || typeof message !== "string" || message.trim() === "") {
-      throw new Error("Message is required and must be a non-empty string.");
-    }
-
-    const sanitizedSubject = xss(subject);
-    const sanitizedEmail = xss(email);
-    const sanitizedMessage = xss(message);
-
+    let connection;
     try {
-      await pool.query("UPDATE messages SET subject = ?, email = ?, message = ?, updated_at = ? WHERE id = ?", [sanitizedSubject, sanitizedEmail, sanitizedMessage, new Date(), id]);
+      connection = await pool.getConnection();
+
+      if (!Number.isInteger(Number(id))) {
+        throw new Error("Invalid message ID format");
+      }
+
+      const cleanData = this.sanitizeMessageData(messageData);
+
+      const [result] = await connection.query(
+        `UPDATE messages 
+         SET subject = ?, email = ?, message = ?, updated_at = NOW() 
+         WHERE id = ?`,
+        [cleanData.subject, cleanData.email, cleanData.message, id]
+      );
+
+      if (result.affectedRows === 0) {
+        throw new Error("Message not found");
+      }
     } catch (error) {
-      console.error("Error updating message:", error);
-      throw new Error("Failed to update message.");
+      console.error("Message.update error:", {
+        id,
+        messageData,
+        error: error.message,
+        stack: error.stack,
+      });
+      throw error;
+    } finally {
+      if (connection) connection.release();
     }
   }
 
+  /**
+   * Delete a message
+   * @param {number} id - Message ID
+   * @returns {Promise<void>}
+   */
   static async delete(id) {
+    let connection;
     try {
-      await pool.query("DELETE FROM messages WHERE id = ?", [id]);
+      connection = await pool.getConnection();
+
+      if (!Number.isInteger(Number(id))) {
+        throw new Error("Invalid message ID format");
+      }
+
+      const [result] = await connection.query(
+        `DELETE FROM messages 
+         WHERE id = ?`,
+        [id]
+      );
+
+      if (result.affectedRows === 0) {
+        throw new Error("Message not found");
+      }
     } catch (error) {
-      console.error("Error deleting message:", error);
-      throw new Error("Failed to delete message.");
+      console.error("Message.delete error:", {
+        id,
+        error: error.message,
+        stack: error.stack,
+      });
+      throw error;
+    } finally {
+      if (connection) connection.release();
     }
   }
 
+  /**
+   * Count unseen messages
+   * @returns {Promise<number>} Count of unseen messages
+   */
   static async countUnseen() {
     try {
-      const [rows] = await pool.query("SELECT COUNT(*) AS unseenCount FROM messages WHERE status = 'unseen'");
+      const [rows] = await pool.query(
+        `SELECT COUNT(*) AS unseenCount 
+         FROM messages 
+         WHERE status = 'unseen'`
+      );
       return rows[0].unseenCount;
     } catch (error) {
-      console.error("Error counting unseen messages:", error);
-      throw new Error("Failed to count unseen messages.");
+      console.error("Message.countUnseen error:", {
+        error: error.message,
+        stack: error.stack,
+      });
+      throw new Error("Failed to count unseen messages");
     }
+  }
+
+  /**
+   * Sanitize message data
+   * @param {Object} data - Message data
+   * @returns {Object} Sanitized message data
+   * @throws {Error} If data is invalid
+   */
+  static sanitizeMessageData(data) {
+    if (!data?.subject?.trim()) {
+      throw new Error("Subject is required");
+    }
+
+    if (!data?.email?.trim() || !data.email.includes("@")) {
+      throw new Error("Valid email is required");
+    }
+
+    if (!data?.message?.trim()) {
+      throw new Error("Message is required");
+    }
+
+    return {
+      subject: xss(data.subject.trim()),
+      email: xss(data.email.trim()),
+      message: xss(data.message.trim()),
+    };
+  }
+
+  /**
+   * Sanitize message for output
+   * @param {Object} message - Message data
+   * @returns {Object} Sanitized message
+   */
+  static sanitize(message) {
+    return {
+      id: message.id,
+      subject: xss(message.subject),
+      email: xss(message.email),
+      message: xss(message.message),
+      status: message.status,
+      created_at: message.created_at,
+      updated_at: message.updated_at,
+    };
   }
 }
 
