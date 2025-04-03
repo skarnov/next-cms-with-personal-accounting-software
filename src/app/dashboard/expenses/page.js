@@ -5,6 +5,7 @@ import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
 import { useSession } from "next-auth/react";
 import dynamic from "next/dynamic";
+import "react-datepicker/dist/react-datepicker.css";
 
 const DatePicker = dynamic(() => import("react-datepicker").then((mod) => mod.default), {
   ssr: false,
@@ -72,7 +73,6 @@ export default function ExpensesPage() {
     return `/api/expenses?page=${pageIndex + 1}${debouncedSearchTerm ? `&search=${encodeURIComponent(debouncedSearchTerm)}` : ""}`;
   };
 
-  // Update your SWR hook to handle the new response format
   const { data, error, size, setSize, mutate } = useSWRInfinite(
     getKey,
     async (url) => {
@@ -93,7 +93,6 @@ export default function ExpensesPage() {
     }
   );
 
-  // Update your data flattening:
   const allExpenses = data ? data.flatMap((page) => page) : [];
   const isLoadingInitialData = !data && !error;
   const isLoadingMore = size > 0 && data && typeof data[size - 1] === "undefined";
@@ -151,7 +150,7 @@ export default function ExpensesPage() {
     setFormData({
       description: "",
       amount: "",
-      walletId: wallets?.[0]?.id || null,
+      walletId: null,
       currency: DEFAULT_CURRENCY,
       date: new Date(),
     });
@@ -159,17 +158,15 @@ export default function ExpensesPage() {
     setIsModalOpen(true);
   };
 
-  // Update the openEditModal function:
   const openEditModal = (expense) => {
     setCurrentExpense(expense);
     setFormData({
       description: expense.description,
       amount: expense.amount.toString(),
-      walletId: expense.wallet_id || null, // Changed from fk_wallet_id
+      walletId: expense.wallet_id || null,
       currency: expense.currency || DEFAULT_CURRENCY,
       date: new Date(expense.created_at),
     });
-    setErrorMessage(null);
     setIsModalOpen(true);
   };
 
@@ -190,23 +187,24 @@ export default function ExpensesPage() {
     setErrorMessage(null);
 
     try {
+      const dateToSend = formData.date instanceof Date ? formData.date : new Date(formData.date);
+
       const requestBody = {
         description: formData.description.trim(),
         amount: parseFloat(formData.amount),
         currency: formData.currency,
-        wallet_id: formData.walletId || null,
-        date: formData.date.toISOString(), // The model will handle the date conversion
+        walletId: formData.walletId || null,
+        date: dateToSend.toISOString(),
       };
 
       const url = currentExpense ? `/api/expenses/${currentExpense.id}` : "/api/expenses";
-
       const method = currentExpense ? "PUT" : "POST";
 
       const response = await fetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${session?.accessToken}`, // If using token-based auth
+          Authorization: `Bearer ${session?.accessToken}`,
         },
         body: JSON.stringify(requestBody),
       });
@@ -216,7 +214,7 @@ export default function ExpensesPage() {
         throw new Error(errorData.error || "Failed to save expense");
       }
 
-      mutate(); // Refresh the data
+      mutate();
       setIsModalOpen(false);
     } catch (error) {
       console.error("Error:", error);
@@ -226,9 +224,11 @@ export default function ExpensesPage() {
     }
   };
 
-  // Update the confirmDelete function:
   const confirmDelete = async () => {
-    if (!expenseToDelete) return;
+    if (!expenseToDelete?.id) {
+      setErrorMessage("Invalid expense ID");
+      return;
+    }
 
     setIsDeleting(true);
     try {

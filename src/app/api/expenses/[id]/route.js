@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
-import { authOptions } from "../../auth/[...nextauth]/route";
-import pool from "@/lib/db";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import Expense from "@/model/Expense";
 
 export async function GET(request, { params }) {
   const session = await getServerSession(authOptions);
@@ -27,10 +27,32 @@ export async function PUT(request, { params }) {
 
   try {
     const data = await request.json();
-    const expense = await Expense.update(params.id, data, session.user.id);
+
+    const transformedData = {
+      ...data,
+      wallet_id: data.walletId,
+      date: data.date,
+    };
+
+    const expense = await Expense.update(params.id, transformedData, session.user.id);
     return Response.json(expense);
   } catch (error) {
-    return Response.json({ error: error.message || "Failed to update expense" }, { status: error.message.includes("not found") ? 404 : 400 });
+    console.error("Error in PUT /api/expenses/[id]:", {
+      error: error.message,
+      stack: error.stack,
+      params,
+      userId: session?.user?.id,
+      data,
+    });
+
+    return Response.json(
+      {
+        error: error.message || "Failed to update expense",
+      },
+      {
+        status: error.message.includes("not found") ? 404 : 400,
+      }
+    );
   }
 }
 

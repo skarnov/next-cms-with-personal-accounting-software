@@ -28,7 +28,11 @@ export async function POST(request) {
 
   try {
     const data = await request.json();
-    const expense = await Expense.create(data, session.user.id);
+    const expenseData = {
+      ...data,
+      wallet_id: data.walletId || null,
+    };
+    const expense = await Expense.create(expenseData, session.user.id);
     return Response.json(expense, { status: 201 });
   } catch (error) {
     return Response.json({ error: error.message || "Failed to create expense" }, { status: 400 });
