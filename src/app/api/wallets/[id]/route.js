@@ -1,110 +1,67 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import pool from "@/lib/db";
+import Wallet from "@/model/Wallet";
+
+const validateWalletId = (id) => {
+  if (!id || isNaN(Number(id))) {
+    throw new Error("Invalid wallet ID");
+  }
+};
 
 export async function GET(request, { params }) {
-  const { id } = params;
-
-  if (!id || isNaN(id)) {
-    return Response.json({ error: "Invalid wallet ID" }, { status: 400 });
-  }
-
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const [wallet] = await pool.query("SELECT * FROM wallets WHERE id = ? AND created_by = ? AND deleted_at IS NULL", [id, session.user.id]);
-
-    if (!wallet.length) {
-      return Response.json({ error: "Wallet not found" }, { status: 404 });
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    return Response.json(wallet[0]);
+    validateWalletId(params.id);
+    const wallet = await Wallet.findByIdAndUser(params.id, session.user.id);
+    return Response.json(wallet);
   } catch (error) {
-    console.error("GET Error:", error);
-    return Response.json({ error: "Server error" }, { status: 500 });
+    console.error(`GET /api/wallets/${params.id} error:`, error);
+    const status = error.message.includes("not found") ? 404 : error.message.includes("Invalid") ? 400 : 500;
+    return Response.json({ error: error.message }, { status });
   }
 }
 
 export async function PUT(request, { params }) {
-  const { id } = params;
-
-  if (!id || isNaN(id)) {
-    return Response.json({ error: "Invalid wallet ID" }, { status: 400 });
-  }
-
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
-    const { name, userId } = await request.json();
-
-    if (!name?.trim()) {
-      return Response.json({ error: "Wallet name is required" }, { status: 400 });
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (String(userId) !== String(session.user.id)) {
-      return Response.json({ error: "Unauthorized action" }, { status: 403 });
-    }
+    validateWalletId(params.id);
+    const { name } = await request.json();
 
-    const [wallet] = await pool.query("SELECT * FROM wallets WHERE id = ? AND created_by = ? AND deleted_at IS NULL", [id, session.user.id]);
+    const updatedWallet = await Wallet.update(params.id, name, session.user.id);
 
-    if (!wallet.length) {
-      return Response.json({ error: "Wallet not found" }, { status: 404 });
-    }
-
-    await pool.query(
-      `UPDATE wallets 
-       SET name = ?, updated_at = NOW(), updated_by = ?
-       WHERE id = ?`,
-      [name.trim(), session.user.id, id]
-    );
-
-    const [updatedWallet] = await pool.query("SELECT * FROM wallets WHERE id = ?", [id]);
-
-    return Response.json(updatedWallet[0]);
+    return Response.json(updatedWallet);
   } catch (error) {
-    console.error("PUT Error:", error);
-    return Response.json({ error: "Server error" }, { status: 500 });
+    console.error(`PUT /api/wallets/${params.id} error:`, error);
+    const status = error.message.includes("not found") ? 404 : error.message.includes("required") ? 400 : error.message.includes("Invalid") ? 400 : 500;
+    return Response.json({ error: error.message }, { status });
   }
 }
 
 export async function DELETE(request, { params }) {
-  const { id } = params;
-
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  let connection;
   try {
-    connection = await pool.getConnection();
-    const [wallets] = await connection.query("SELECT * FROM wallets WHERE id = ? AND created_by = ? AND deleted_at IS NULL", [id, session.user.id]);
-
-    if (wallets.length === 0) {
-      return Response.json({ error: "Wallet not found" }, { status: 404 });
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      return Response.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await connection.query(
-      `UPDATE wallets 
-       SET deleted_at = NOW(), updated_at = NOW(), updated_by = ?
-       WHERE id = ?`,
-      [session.user.id, id]
-    );
+    validateWalletId(params.id);
+    await Wallet.delete(params.id, session.user.id);
 
     return Response.json({
       success: true,
-      data: { id, message: "Wallet deleted successfully" },
+      id: params.id,
     });
   } catch (error) {
-    console.error("DELETE Error:", error);
-    return Response.json({ error: "Failed to delete wallet" }, { status: 500 });
-  } finally {
-    if (connection) connection.release();
+    console.error(`DELETE /api/wallets/${params.id} error:`, error);
+    const status = error.message.includes("not found") ? 404 : error.message.includes("Invalid") ? 400 : 500;
+    return Response.json({ error: error.message }, { status });
   }
 }
