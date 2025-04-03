@@ -109,6 +109,7 @@ class Expense {
       const cleanData = this.sanitizeExpenseData(data);
       const expenseDate = cleanData.date ? new Date(cleanData.date) : new Date();
 
+      // Insert into expenses table
       const [expenseResult] = await connection.query(
         `INSERT INTO expenses 
          (description, amount, currency, fk_wallet_id, created_at, created_by)
@@ -116,10 +117,11 @@ class Expense {
         [cleanData.description, cleanData.amount, cleanData.currency, cleanData.wallet_id || null, expenseDate, userId]
       );
 
+      // Insert into cashbook table - set updated_at/by to NULL initially
       await connection.query(
         `INSERT INTO cashbook 
-         (out_amount, fk_reference_id, created_at, created_by)
-         VALUES (?, ?, ?, ?)`,
+         (in_amount, fk_reference_id, created_at, created_by, updated_at, updated_by)
+         VALUES (?, ?, ?, ?, NULL, NULL)`,
         [cleanData.amount, expenseResult.insertId, expenseDate, userId]
       );
 
@@ -150,7 +152,7 @@ class Expense {
     let connection;
     try {
       connection = await pool.getConnection();
-      await connection.beginTransaction();
+      await connection.beginTransaction(); // Start transaction
 
       if (!Number.isInteger(Number(id))) {
         throw new Error("Invalid expense ID format");
@@ -164,29 +166,31 @@ class Expense {
       const expenseDate = cleanData.date ? new Date(cleanData.date) : new Date();
       const now = new Date();
 
+      // Update expenses table
       const [expenseResult] = await connection.query(
         `UPDATE expenses 
          SET description = ?, amount = ?, currency = ?, fk_wallet_id = ?, 
-             updated_at = ?, updated_by = ?
-         WHERE id = ? AND deleted_at IS NULL`,
-        [cleanData.description, cleanData.amount, cleanData.currency, cleanData.wallet_id || null, now, userId, id]
+             created_at = ?, updated_at = ?, updated_by = ?
+         WHERE id = ? AND created_by = ? AND deleted_at IS NULL`,
+        [cleanData.description, cleanData.amount, cleanData.currency, cleanData.wallet_id || null, expenseDate, now, userId, id, userId]
       );
 
       if (expenseResult.affectedRows === 0) {
         throw new Error("Expense not found");
       }
 
+      // Update cashbook table
       await connection.query(
         `UPDATE cashbook 
          SET out_amount = ?, updated_at = ?, updated_by = ?
-         WHERE fk_reference_id = ? AND deleted_at IS NULL`,
-        [cleanData.amount, now, userId, id]
+         WHERE fk_reference_id = ? AND created_by = ? AND deleted_at IS NULL`,
+        [cleanData.amount, now, userId, id, userId]
       );
 
-      await connection.commit();
+      await connection.commit(); // Commit transaction
       return this.findById(id, userId);
     } catch (error) {
-      if (connection) await connection.rollback();
+      if (connection) await connection.rollback(); // Rollback on error
       console.error("Expense.update error:", {
         id,
         data,
@@ -210,7 +214,7 @@ class Expense {
     let connection;
     try {
       connection = await pool.getConnection();
-      await connection.beginTransaction();
+      await connection.beginTransaction(); // Start transaction
 
       if (!Number.isInteger(Number(id))) {
         throw new Error("Invalid expense ID format");
@@ -222,28 +226,30 @@ class Expense {
 
       const now = new Date();
 
+      // Update expenses table
       const [expenseResult] = await connection.query(
         `UPDATE expenses 
          SET deleted_at = ?, updated_at = ?, updated_by = ?
-         WHERE id = ? AND deleted_at IS NULL`,
-        [now, now, userId, id]
+         WHERE id = ? AND created_by = ? AND deleted_at IS NULL`,
+        [now, now, userId, id, userId]
       );
 
       if (expenseResult.affectedRows === 0) {
         throw new Error("Expense not found or already deleted");
       }
 
+      // Update cashbook table
       await connection.query(
         `UPDATE cashbook 
          SET deleted_at = ?, updated_at = ?, updated_by = ?
-         WHERE fk_reference_id = ? AND deleted_at IS NULL`,
-        [now, now, userId, id]
+         WHERE fk_reference_id = ? AND created_by = ? AND deleted_at IS NULL`,
+        [now, now, userId, id, userId]
       );
 
-      await connection.commit();
+      await connection.commit(); // Commit transaction
       return true;
     } catch (error) {
-      if (connection) await connection.rollback();
+      if (connection) await connection.rollback(); // Rollback on error
       console.error("Expense.delete error:", {
         id,
         userId,
@@ -266,7 +272,7 @@ class Expense {
     let connection;
     try {
       connection = await pool.getConnection();
-      await connection.beginTransaction();
+      await connection.beginTransaction(); // Start transaction
 
       if (!Number.isInteger(Number(id))) {
         throw new Error("Invalid expense ID format");
@@ -278,28 +284,30 @@ class Expense {
 
       const now = new Date();
 
+      // Update expenses table
       const [expenseResult] = await connection.query(
         `UPDATE expenses 
          SET deleted_at = NULL, updated_at = ?, updated_by = ?
-         WHERE id = ? AND deleted_at IS NOT NULL`,
-        [now, userId, id]
+         WHERE id = ? AND created_by = ? AND deleted_at IS NOT NULL`,
+        [now, userId, id, userId]
       );
 
       if (expenseResult.affectedRows === 0) {
         throw new Error("Expense not found or not deleted");
       }
 
+      // Update cashbook table
       await connection.query(
         `UPDATE cashbook 
          SET deleted_at = NULL, updated_at = ?, updated_by = ?
-         WHERE fk_reference_id = ? AND deleted_at IS NOT NULL`,
-        [now, userId, id]
+         WHERE fk_reference_id = ? AND created_by = ? AND deleted_at IS NOT NULL`,
+        [now, userId, id, userId]
       );
 
-      await connection.commit();
+      await connection.commit(); // Commit transaction
       return true;
     } catch (error) {
-      if (connection) await connection.rollback();
+      if (connection) await connection.rollback(); // Rollback on error
       console.error("Expense.restore error:", {
         id,
         userId,
