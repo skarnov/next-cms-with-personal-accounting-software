@@ -26,20 +26,20 @@ class Income {
                 e.fk_wallet_id, w.name as wallet_name
          FROM incomes e
          LEFT JOIN wallets w ON e.fk_wallet_id = w.id
-         WHERE e.created_by = ? AND e.deleted_at IS NULL
+         WHERE e.deleted_at IS NULL
          AND (e.description LIKE ? OR w.name LIKE ?)
          ORDER BY e.created_at DESC
          LIMIT ? OFFSET ?`,
-        [userId, `%${search}%`, `%${search}%`, pageSize, offset]
+        [`%${search}%`, `%${search}%`, pageSize, offset]
       );
 
       const [totalCount] = await pool.query(
         `SELECT COUNT(*) as total 
          FROM incomes e
          LEFT JOIN wallets w ON e.fk_wallet_id = w.id
-         WHERE e.created_by = ? AND e.deleted_at IS NULL
+         WHERE e.deleted_at IS NULL
          AND (e.description LIKE ? OR w.name LIKE ?)`,
-        [userId, `%${search}%`, `%${search}%`]
+        [`%${search}%`, `%${search}%`]
       );
 
       return {
@@ -85,9 +85,9 @@ class Income {
                 e.fk_wallet_id, w.name as wallet_name
          FROM incomes e
          LEFT JOIN wallets w ON e.fk_wallet_id = w.id
-         WHERE e.id = ? AND e.created_by = ? AND e.deleted_at IS NULL
+         WHERE e.id = ? AND e.deleted_at IS NULL
          LIMIT 1`,
-        [id, userId]
+        [id]
       );
 
       if (!income.length) return null;
