@@ -13,7 +13,6 @@ const DatePicker = dynamic(() => import("react-datepicker").then((mod) => mod.de
 });
 
 const PAGE_SIZE = 50;
-
 const CURRENCIES = [
   { code: "GBP", name: "British Pound", symbol: "£" },
   { code: "USD", name: "US Dollar", symbol: "$" },
@@ -37,13 +36,13 @@ const fetcher = async (url) => {
   return res.json();
 };
 
-export default function ExpensesPage() {
-  const { data: session } = useSession();
+export default function IncomesPage() {
   const [hasMounted, setHasMounted] = useState(false);
+  const { data: session } = useSession();
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentExpense, setCurrentExpense] = useState(null);
+  const [currentIncome, setCurrentIncome] = useState(null);
   const [formData, setFormData] = useState({
     description: "",
     amount: "",
@@ -54,7 +53,7 @@ export default function ExpensesPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [expenseToDelete, setExpenseToDelete] = useState(null);
+  const [incomeToDelete, setIncomeToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
@@ -71,7 +70,7 @@ export default function ExpensesPage() {
 
   const getKey = (pageIndex, previousPageData) => {
     if (previousPageData && !previousPageData.data.length) return null;
-    return `/api/expenses?page=${pageIndex + 1}${debouncedSearchTerm ? `&search=${encodeURIComponent(debouncedSearchTerm)}` : ""}`;
+    return `/api/incomes?page=${pageIndex + 1}${debouncedSearchTerm ? `&search=${encodeURIComponent(debouncedSearchTerm)}` : ""}`;
   };
 
   const { data, error, size, setSize, mutate } = useSWRInfinite(
@@ -94,7 +93,7 @@ export default function ExpensesPage() {
     }
   );
 
-  const allExpenses = data ? data.flatMap((page) => page.data) : [];
+  const allIncomes = data ? data.flatMap((page) => page) : [];
   const isLoadingInitialData = !data && !error;
   const isLoadingMore = size > 0 && data && typeof data[size - 1] === "undefined";
   const isEmpty = data?.[0]?.data?.length === 0;
@@ -147,7 +146,7 @@ export default function ExpensesPage() {
   };
 
   const openAddModal = () => {
-    setCurrentExpense(null);
+    setCurrentIncome(null);
     setFormData({
       description: "",
       amount: "",
@@ -159,20 +158,20 @@ export default function ExpensesPage() {
     setIsModalOpen(true);
   };
 
-  const openEditModal = (expense) => {
-    setCurrentExpense(expense);
+  const openEditModal = (income) => {
+    setCurrentIncome(income);
     setFormData({
-      description: expense.description,
-      amount: expense.amount.toString(),
-      walletId: expense.wallet_id || null,
-      currency: expense.currency || DEFAULT_CURRENCY,
-      date: new Date(expense.created_at),
+      description: income.description,
+      amount: income.amount.toString(),
+      walletId: income.wallet_id || null,
+      currency: income.currency || DEFAULT_CURRENCY,
+      date: new Date(income.created_at),
     });
     setIsModalOpen(true);
   };
 
-  const handleDeleteClick = (expense) => {
-    setExpenseToDelete(expense);
+  const handleDeleteClick = (income) => {
+    setIncomeToDelete(income);
     setDeleteModalOpen(true);
   };
 
@@ -198,8 +197,8 @@ export default function ExpensesPage() {
         date: dateToSend.toISOString(),
       };
 
-      const url = currentExpense ? `/api/expenses/${currentExpense.id}` : "/api/expenses";
-      const method = currentExpense ? "PUT" : "POST";
+      const url = currentIncome ? `/api/incomes/${currentIncome.id}` : "/api/incomes";
+      const method = currentIncome ? "PUT" : "POST";
 
       const response = await fetch(url, {
         method,
@@ -212,7 +211,7 @@ export default function ExpensesPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to save expense");
+        throw new Error(errorData.error || "Failed to save income");
       }
 
       mutate();
@@ -226,11 +225,14 @@ export default function ExpensesPage() {
   };
 
   const confirmDelete = async () => {
-    if (!expenseToDelete) return;
+    if (!incomeToDelete?.id) {
+      setErrorMessage("Invalid income ID");
+      return;
+    }
 
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/expenses/${expenseToDelete.id}`, {
+      const response = await fetch(`/api/incomes/${incomeToDelete.id}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -240,14 +242,14 @@ export default function ExpensesPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to delete expense");
+        throw new Error(errorData.error || "Failed to delete income");
       }
 
       mutate();
       setDeleteModalOpen(false);
     } catch (error) {
       console.error("Error:", error);
-      setErrorMessage(error.message || "Failed to delete expense");
+      setErrorMessage(error.message || "Failed to delete income");
     } finally {
       setIsDeleting(false);
     }
@@ -264,9 +266,9 @@ export default function ExpensesPage() {
   return (
     <div className="text-white p-4 w-full h-full flex flex-col">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">My Expenses</h1>
+        <h1 className="text-2xl font-bold">My Incomes</h1>
         <button onClick={openAddModal} className="flex items-center gap-2 bg-lime-600 hover:bg-lime-700 px-4 py-2 rounded-lg transition shadow-md hover:shadow-lime-500/20" disabled={!session}>
-          <FiPlus className="text-lg" /> Add New Expense
+          <FiPlus className="text-lg" /> Add New Income
         </button>
       </div>
 
@@ -274,18 +276,18 @@ export default function ExpensesPage() {
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <FiSearch className="text-gray-400" />
         </div>
-        <input type="text" placeholder="Search expenses..." className="w-full bg-gray-700 border border-gray-600 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent text-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+        <input type="text" placeholder="Search incomes..." className="w-full bg-gray-700 border border-gray-600 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent text-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
       </div>
 
       {isEmpty && !isLoadingInitialData ? (
         <div className="bg-gray-800 rounded-lg p-8 text-center border border-gray-700 flex-grow flex items-center justify-center">
           {debouncedSearchTerm ? (
-            <p className="text-gray-300">No expenses match your search.</p>
+            <p className="text-gray-300">No incomes match your search.</p>
           ) : (
             <div className="flex flex-col items-center justify-center">
-              <p className="mb-4 text-gray-300">You don't have any expenses yet.</p>
+              <p className="mb-4 text-gray-300">You don't have any incomes yet.</p>
               <button onClick={openAddModal} className="flex items-center gap-2 bg-lime-600 hover:bg-lime-700 px-4 py-2 rounded-lg transition mx-auto shadow-md hover:shadow-lime-500/20" disabled={!session}>
-                <FiPlus className="text-lg" /> Add your first expense
+                <FiPlus className="text-lg" /> Add your first income
               </button>
             </div>
           )}
@@ -304,31 +306,31 @@ export default function ExpensesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-700">
-                {allExpenses.map((expense) => (
-                  <tr key={expense.id} className="hover:bg-gray-750 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-gray-300">{formatDate(expense.created_at)}</td>
+                {allIncomes.map((income) => (
+                  <tr key={income.id} className="hover:bg-gray-750 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-300">{formatDate(income.created_at)}</td>
                     <td className="px-6 py-4">
-                      <div className="font-medium">{expense.description}</div>
+                      <div className="font-medium">{income.description}</div>
                     </td>
                     <td className="px-6 py-4">
-                      {expense.wallet_name ? (
+                      {income.wallet_name ? (
                         <div className="flex items-center text-gray-300">
                           {FiWallet && <FiWallet className="mr-2" />}
-                          {expense.wallet_name}
+                          {income.wallet_name}
                         </div>
                       ) : (
                         "-"
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className={`font-medium ${expense.amount < 0 ? "text-rose-400" : "text-lime-400"}`}>{formatCurrency(expense.amount, expense.currency)}</div>
+                      <div className={`font-medium ${income.amount < 0 ? "text-rose-400" : "text-lime-400"}`}>{formatCurrency(income.amount, income.currency)}</div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => openEditModal(expense)} className="p-2 border border-blue-400/30 hover:border-blue-400 rounded-md text-blue-400 hover:text-white hover:bg-blue-500/20 transition-all duration-200" disabled={!session}>
+                        <button onClick={() => openEditModal(income)} className="p-2 border border-blue-400/30 hover:border-blue-400 rounded-md text-blue-400 hover:text-white hover:bg-blue-500/20 transition-all duration-200" disabled={!session}>
                           <FiEdit2 />
                         </button>
-                        <button onClick={() => handleDeleteClick(expense)} className="p-2 border border-rose-400/30 hover:border-rose-400 rounded-md text-rose-400 hover:text-white hover:bg-rose-500/20 transition-all duration-200" disabled={!session}>
+                        <button onClick={() => handleDeleteClick(income)} className="p-2 border border-rose-400/30 hover:border-rose-400 rounded-md text-rose-400 hover:text-white hover:bg-rose-500/20 transition-all duration-200" disabled={!session}>
                           <FiTrash2 />
                         </button>
                       </div>
@@ -344,7 +346,7 @@ export default function ExpensesPage() {
               </div>
             )}
 
-            {isReachingEnd && !isEmpty && <div className="text-center p-4 text-gray-400">You've reached the end of your expenses</div>}
+            {isReachingEnd && !isEmpty && <div className="text-center p-4 text-gray-400">You've reached the end of your incomes</div>}
           </div>
         </div>
       )}
@@ -355,7 +357,7 @@ export default function ExpensesPage() {
           <div className="bg-gray-800 rounded-lg w-full max-w-md border border-gray-700 shadow-xl">
             <div className="p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-bold">{currentExpense ? "Edit Expense" : "Add New Expense"}</h2>
+                <h2 className="text-xl font-bold">{currentIncome ? "Edit Income" : "Add New Income"}</h2>
                 <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white transition" disabled={isSubmitting}>
                   <FiX size={24} />
                 </button>
@@ -431,12 +433,12 @@ export default function ExpensesPage() {
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                           </svg>
-                          {currentExpense ? "Updating..." : "Saving..."}
+                          {currentIncome ? "Updating..." : "Saving..."}
                         </>
                       ) : (
                         <>
                           <FiCheck />
-                          {currentExpense ? "Update Expense" : "Save Expense"}
+                          {currentIncome ? "Update Income" : "Save Income"}
                         </>
                       )}
                     </button>
@@ -459,7 +461,7 @@ export default function ExpensesPage() {
               </div>
 
               <p className="mb-6 text-gray-300">
-                Are you sure you want to delete <span className="font-semibold text-white">"{expenseToDelete?.description}"</span> expense of <span className="font-semibold text-white">{formatCurrency(expenseToDelete?.amount, expenseToDelete?.currency)}</span>?
+                Are you sure you want to delete <span className="font-semibold text-white">"{incomeToDelete?.description}"</span> income of <span className="font-semibold text-white">{formatCurrency(incomeToDelete?.amount, incomeToDelete?.currency)}</span>?
               </p>
 
               <div className="flex justify-end gap-3">

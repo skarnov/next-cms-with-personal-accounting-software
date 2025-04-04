@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import Expense from "@/model/Expense";
+import Income from "@/model/Income";
 
 export async function GET(request) {
   const session = await getServerSession(authOptions);
@@ -11,23 +11,12 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get("page")) || 1;
-    const pageSize = parseInt(searchParams.get("pageSize")) || 50;
     const search = searchParams.get("search") || "";
 
-    const result = await Expense.findAll(session.user.id, {
-      page,
-      pageSize,
-      search,
-    });
-
-    return Response.json(result);
+    const incomes = await Income.findAll(session.user.id, { page, search });
+    return Response.json(incomes);
   } catch (error) {
-    return Response.json(
-      {
-        error: error.message || "Failed to fetch expenses",
-      },
-      { status: 500 }
-    );
+    return Response.json({ error: error.message || "Failed to fetch incomes" }, { status: 500 });
   }
 }
 
@@ -39,13 +28,13 @@ export async function POST(request) {
 
   try {
     const data = await request.json();
-    const expenseData = {
+    const incomeData = {
       ...data,
       wallet_id: data.walletId || null,
     };
-    const expense = await Expense.create(expenseData, session.user.id);
-    return Response.json(expense, { status: 201 });
+    const income = await Income.create(incomeData, session.user.id);
+    return Response.json(income, { status: 201 });
   } catch (error) {
-    return Response.json({ error: error.message || "Failed to create expense" }, { status: 400 });
+    return Response.json({ error: error.message || "Failed to create income" }, { status: 400 });
   }
 }

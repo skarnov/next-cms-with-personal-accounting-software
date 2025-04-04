@@ -20,6 +20,8 @@ class Expense {
       }
 
       const offset = (page - 1) * pageSize;
+
+      // Get paginated expenses
       const [expenses] = await pool.query(
         `SELECT e.id, e.description, e.amount, e.currency, e.created_at, 
                 e.fk_wallet_id, w.name as wallet_name
@@ -32,7 +34,25 @@ class Expense {
         [userId, `%${search}%`, `%${search}%`, pageSize, offset]
       );
 
-      return expenses.map((expense) => this.sanitize(expense));
+      // Get total count (without LIMIT)
+      const [totalCount] = await pool.query(
+        `SELECT COUNT(*) as total 
+         FROM expenses e
+         LEFT JOIN wallets w ON e.fk_wallet_id = w.id
+         WHERE e.created_by = ? AND e.deleted_at IS NULL
+         AND (e.description LIKE ? OR w.name LIKE ?)`,
+        [userId, `%${search}%`, `%${search}%`]
+      );
+
+      return {
+        data: expenses.map((expense) => this.sanitize(expense)),
+        pagination: {
+          page,
+          pageSize,
+          totalItems: totalCount[0].total,
+          totalPages: Math.ceil(totalCount[0].total / pageSize),
+        },
+      };
     } catch (error) {
       console.error("Expense.findAll error:", {
         userId,

@@ -3,15 +3,15 @@ import xss from "xss";
 
 const ALLOWED_CURRENCIES = ["GBP", "USD", "BDT"];
 
-class Expense {
+class Income {
   /**
-   * Get all expenses for a user with pagination and search
+   * Get all incomes for a user with pagination and search
    * @param {number} userId - User ID
    * @param {Object} options - Pagination and search options
    * @param {number} options.page - Page number
    * @param {number} options.pageSize - Items per page
    * @param {string} options.search - Search term
-   * @returns {Promise<Array>} List of expenses
+   * @returns {Promise<Array>} List of incomes
    */
   static async findAll(userId, { page = 1, pageSize = 50, search = "" } = {}) {
     try {
@@ -20,10 +20,10 @@ class Expense {
       }
 
       const offset = (page - 1) * pageSize;
-      const [expenses] = await pool.query(
+      const [incomes] = await pool.query(
         `SELECT e.id, e.description, e.amount, e.currency, e.created_at, 
                 e.fk_wallet_id, w.name as wallet_name
-         FROM expenses e
+         FROM incomes e
          LEFT JOIN wallets w ON e.fk_wallet_id = w.id
          WHERE e.created_by = ? AND e.deleted_at IS NULL
          AND (e.description LIKE ? OR w.name LIKE ?)
@@ -32,9 +32,9 @@ class Expense {
         [userId, `%${search}%`, `%${search}%`, pageSize, offset]
       );
 
-      return expenses.map((expense) => this.sanitize(expense));
+      return incomes.map((income) => this.sanitize(income));
     } catch (error) {
-      console.error("Expense.findAll error:", {
+      console.error("Income.findAll error:", {
         userId,
         page,
         pageSize,
@@ -42,40 +42,40 @@ class Expense {
         error: error.message,
         stack: error.stack,
       });
-      throw new Error("Failed to fetch expenses");
+      throw new Error("Failed to fetch incomes");
     }
   }
 
   /**
-   * Find expense by ID for a specific user
-   * @param {number} id - Expense ID
+   * Find income by ID for a specific user
+   * @param {number} id - Income ID
    * @param {number} userId - User ID
-   * @returns {Promise<Object|null>} Expense object or null if not found
+   * @returns {Promise<Object|null>} Income object or null if not found
    */
   static async findById(id, userId) {
     try {
       if (!Number.isInteger(Number(id))) {
-        throw new Error("Invalid expense ID format");
+        throw new Error("Invalid income ID format");
       }
 
       if (!Number.isInteger(Number(userId))) {
         throw new Error("Invalid user ID format");
       }
 
-      const [expense] = await pool.query(
+      const [income] = await pool.query(
         `SELECT e.id, e.description, e.amount, e.currency, e.created_at,
                 e.fk_wallet_id, w.name as wallet_name
-         FROM expenses e
+         FROM incomes e
          LEFT JOIN wallets w ON e.fk_wallet_id = w.id
          WHERE e.id = ? AND e.created_by = ? AND e.deleted_at IS NULL
          LIMIT 1`,
         [id, userId]
       );
 
-      if (!expense.length) return null;
-      return this.sanitize(expense[0]);
+      if (!income.length) return null;
+      return this.sanitize(income[0]);
     } catch (error) {
-      console.error("Expense.findById error:", {
+      console.error("Income.findById error:", {
         id,
         userId,
         error: error.message,
@@ -86,15 +86,15 @@ class Expense {
   }
 
   /**
-   * Create a new expense
-   * @param {Object} data - Expense data
-   * @param {string} data.description - Expense description
-   * @param {number} data.amount - Expense amount
+   * Create a new income
+   * @param {Object} data - Income data
+   * @param {string} data.description - Income description
+   * @param {number} data.amount - Income amount
    * @param {string} data.currency - Currency code
    * @param {number} data.wallet_id - Wallet ID (optional)
-   * @param {string} data.date - Expense date (optional)
+   * @param {string} data.date - Income date (optional)
    * @param {number} userId - User ID
-   * @returns {Promise<Object>} Created expense
+   * @returns {Promise<Object>} Created income
    */
   static async create(data, userId) {
     let connection;
@@ -106,92 +106,88 @@ class Expense {
         throw new Error("Invalid user ID format");
       }
 
-      const cleanData = this.sanitizeExpenseData(data);
-      const expenseDate = cleanData.date ? new Date(cleanData.date) : new Date();
+      const cleanData = this.sanitizeIncomeData(data);
+      const incomeDate = cleanData.date ? new Date(cleanData.date) : new Date();
 
-      // Insert into expenses table
-      const [expenseResult] = await connection.query(
-        `INSERT INTO expenses 
+      const [incomeResult] = await connection.query(
+        `INSERT INTO incomes 
          (description, amount, currency, fk_wallet_id, created_at, created_by)
          VALUES (?, ?, ?, ?, ?, ?)`,
-        [cleanData.description, cleanData.amount, cleanData.currency, cleanData.wallet_id || null, expenseDate, userId]
+        [cleanData.description, cleanData.amount, cleanData.currency, cleanData.wallet_id || null, incomeDate, userId]
       );
 
-      // Insert into cashbook table - set updated_at/by to NULL initially
       await connection.query(
         `INSERT INTO cashbook 
-         (in_amount, fk_reference_id, created_at, created_by, updated_at, updated_by)
-         VALUES (?, ?, ?, ?, NULL, NULL)`,
-        [cleanData.amount, expenseResult.insertId, expenseDate, userId]
+         (in_amount, fk_reference_id, created_at, created_by)
+         VALUES (?, ?, ?, ?)`,
+        [cleanData.amount, incomeResult.insertId, incomeDate, userId]
       );
 
       await connection.commit();
-      return this.findById(expenseResult.insertId, userId);
+      return this.findById(incomeResult.insertId, userId);
     } catch (error) {
       if (connection) await connection.rollback();
-      console.error("Expense.create error:", {
+      console.error("Income.create error:", {
         data,
         userId,
         error: error.message,
         stack: error.stack,
       });
-      throw new Error(error.message || "Failed to create expense");
+      throw new Error(error.message || "Failed to create income");
     } finally {
       if (connection) connection.release();
     }
   }
 
   /**
-   * Update an expense
-   * @param {number} id - Expense ID
-   * @param {Object} data - Expense data
+   * Update an income
+   * @param {number} id - Income ID
+   * @param {Object} data - Income data
    * @param {number} userId - User ID
-   * @returns {Promise<Object>} Updated expense
+   * @returns {Promise<Object>} Updated income
    */
   static async update(id, data, userId) {
     let connection;
     try {
       connection = await pool.getConnection();
-      await connection.beginTransaction(); // Start transaction
+      await connection.beginTransaction();
 
       if (!Number.isInteger(Number(id))) {
-        throw new Error("Invalid expense ID format");
+        throw new Error("Invalid income ID format");
       }
 
       if (!Number.isInteger(Number(userId))) {
         throw new Error("Invalid user ID format");
       }
 
-      const cleanData = this.sanitizeExpenseData(data);
-      const expenseDate = cleanData.date ? new Date(cleanData.date) : new Date();
+      const cleanData = this.sanitizeIncomeData(data);
+      const incomeDate = cleanData.date ? new Date(cleanData.date) : new Date();
       const now = new Date();
 
-      // Update expenses table
-      const [expenseResult] = await connection.query(
-        `UPDATE expenses 
+      const [incomeResult] = await connection.query(
+        `UPDATE incomes 
          SET description = ?, amount = ?, currency = ?, fk_wallet_id = ?, 
-             created_at = ?, updated_at = ?, updated_by = ?
-         WHERE id = ? AND created_by = ? AND deleted_at IS NULL`,
-        [cleanData.description, cleanData.amount, cleanData.currency, cleanData.wallet_id || null, expenseDate, now, userId, id, userId]
+             updated_at = ?, updated_by = ?
+         WHERE id = ? AND deleted_at IS NULL`,
+        [cleanData.description, cleanData.amount, cleanData.currency, cleanData.wallet_id || null, now, userId, id]
       );
 
-      if (expenseResult.affectedRows === 0) {
-        throw new Error("Expense not found");
+      if (incomeResult.affectedRows === 0) {
+        throw new Error("Income not found");
       }
 
-      // Update cashbook table
       await connection.query(
         `UPDATE cashbook 
-         SET out_amount = ?, updated_at = ?, updated_by = ?
-         WHERE fk_reference_id = ? AND created_by = ? AND deleted_at IS NULL`,
-        [cleanData.amount, now, userId, id, userId]
+         SET in_amount = ?, updated_at = ?, updated_by = ?
+         WHERE fk_reference_id = ? AND deleted_at IS NULL`,
+        [cleanData.amount, now, userId, id]
       );
 
-      await connection.commit(); // Commit transaction
+      await connection.commit();
       return this.findById(id, userId);
     } catch (error) {
-      if (connection) await connection.rollback(); // Rollback on error
-      console.error("Expense.update error:", {
+      if (connection) await connection.rollback();
+      console.error("Income.update error:", {
         id,
         data,
         userId,
@@ -205,8 +201,8 @@ class Expense {
   }
 
   /**
-   * Soft delete an expense
-   * @param {number} id - Expense ID
+   * Soft delete an income
+   * @param {number} id - Income ID
    * @param {number} userId - User ID
    * @returns {Promise<boolean>} True if deletion was successful
    */
@@ -214,10 +210,10 @@ class Expense {
     let connection;
     try {
       connection = await pool.getConnection();
-      await connection.beginTransaction(); // Start transaction
+      await connection.beginTransaction();
 
       if (!Number.isInteger(Number(id))) {
-        throw new Error("Invalid expense ID format");
+        throw new Error("Invalid income ID format");
       }
 
       if (!Number.isInteger(Number(userId))) {
@@ -226,31 +222,29 @@ class Expense {
 
       const now = new Date();
 
-      // Update expenses table
-      const [expenseResult] = await connection.query(
-        `UPDATE expenses 
+      const [incomeResult] = await connection.query(
+        `UPDATE incomes 
          SET deleted_at = ?, updated_at = ?, updated_by = ?
-         WHERE id = ? AND created_by = ? AND deleted_at IS NULL`,
-        [now, now, userId, id, userId]
+         WHERE id = ? AND deleted_at IS NULL`,
+        [now, now, userId, id]
       );
 
-      if (expenseResult.affectedRows === 0) {
-        throw new Error("Expense not found or already deleted");
+      if (incomeResult.affectedRows === 0) {
+        throw new Error("Income not found or already deleted");
       }
 
-      // Update cashbook table
       await connection.query(
         `UPDATE cashbook 
          SET deleted_at = ?, updated_at = ?, updated_by = ?
-         WHERE fk_reference_id = ? AND created_by = ? AND deleted_at IS NULL`,
-        [now, now, userId, id, userId]
+         WHERE fk_reference_id = ? AND deleted_at IS NULL`,
+        [now, now, userId, id]
       );
 
-      await connection.commit(); // Commit transaction
+      await connection.commit();
       return true;
     } catch (error) {
-      if (connection) await connection.rollback(); // Rollback on error
-      console.error("Expense.delete error:", {
+      if (connection) await connection.rollback();
+      console.error("Income.delete error:", {
         id,
         userId,
         error: error.message,
@@ -263,8 +257,8 @@ class Expense {
   }
 
   /**
-   * Restore a soft-deleted expense
-   * @param {number} id - Expense ID
+   * Restore a soft-deleted income
+   * @param {number} id - Income ID
    * @param {number} userId - User ID
    * @returns {Promise<boolean>} True if restoration was successful
    */
@@ -272,10 +266,10 @@ class Expense {
     let connection;
     try {
       connection = await pool.getConnection();
-      await connection.beginTransaction(); // Start transaction
+      await connection.beginTransaction();
 
       if (!Number.isInteger(Number(id))) {
-        throw new Error("Invalid expense ID format");
+        throw new Error("Invalid income ID format");
       }
 
       if (!Number.isInteger(Number(userId))) {
@@ -284,31 +278,29 @@ class Expense {
 
       const now = new Date();
 
-      // Update expenses table
-      const [expenseResult] = await connection.query(
-        `UPDATE expenses 
+      const [incomeResult] = await connection.query(
+        `UPDATE incomes 
          SET deleted_at = NULL, updated_at = ?, updated_by = ?
-         WHERE id = ? AND created_by = ? AND deleted_at IS NOT NULL`,
-        [now, userId, id, userId]
+         WHERE id = ? AND deleted_at IS NOT NULL`,
+        [now, userId, id]
       );
 
-      if (expenseResult.affectedRows === 0) {
-        throw new Error("Expense not found or not deleted");
+      if (incomeResult.affectedRows === 0) {
+        throw new Error("Income not found or not deleted");
       }
 
-      // Update cashbook table
       await connection.query(
         `UPDATE cashbook 
          SET deleted_at = NULL, updated_at = ?, updated_by = ?
-         WHERE fk_reference_id = ? AND created_by = ? AND deleted_at IS NOT NULL`,
-        [now, userId, id, userId]
+         WHERE fk_reference_id = ? AND deleted_at IS NOT NULL`,
+        [now, userId, id]
       );
 
-      await connection.commit(); // Commit transaction
+      await connection.commit();
       return true;
     } catch (error) {
-      if (connection) await connection.rollback(); // Rollback on error
-      console.error("Expense.restore error:", {
+      if (connection) await connection.rollback();
+      console.error("Income.restore error:", {
         id,
         userId,
         error: error.message,
@@ -321,12 +313,12 @@ class Expense {
   }
 
   /**
-   * Sanitize expense data
-   * @param {Object} data - Expense data
-   * @returns {Object} Sanitized expense data
+   * Sanitize income data
+   * @param {Object} data - Income data
+   * @returns {Object} Sanitized income data
    * @throws {Error} If data is invalid
    */
-  static sanitizeExpenseData(data) {
+  static sanitizeIncomeData(data) {
     if (!data?.description?.trim()) {
       throw new Error("Description is required");
     }
@@ -349,21 +341,21 @@ class Expense {
   }
 
   /**
-   * Sanitize expense for output
-   * @param {Object} expense - Expense data
-   * @returns {Object} Sanitized expense
+   * Sanitize income for output
+   * @param {Object} income - Income data
+   * @returns {Object} Sanitized income
    */
-  static sanitize(expense) {
+  static sanitize(income) {
     return {
-      id: expense.id,
-      description: xss(expense.description),
-      amount: Number(expense.amount),
-      currency: expense.currency,
-      created_at: expense.created_at,
-      wallet_id: expense.fk_wallet_id,
-      wallet_name: expense.wallet_name ? xss(expense.wallet_name) : null,
+      id: income.id,
+      description: xss(income.description),
+      amount: Number(income.amount),
+      currency: income.currency,
+      created_at: income.created_at,
+      wallet_id: income.fk_wallet_id,
+      wallet_name: income.wallet_name ? xss(income.wallet_name) : null,
     };
   }
 }
 
-export default Expense;
+export default Income;
