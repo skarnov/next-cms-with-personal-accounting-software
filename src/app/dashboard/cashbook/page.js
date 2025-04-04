@@ -13,6 +13,10 @@ export default function CashbookPage() {
   const { data: config } = useSWR("/api/config?name=paginate_rows&name=default_currency&name=currencies", fetcher);
 
   useEffect(() => {
+    document.title = "My Cashbook";
+  }, []);
+
+  useEffect(() => {
     if (config) {
       const defaultCurrency = config.default_currency || "GBP";
       const currencies = config.currencies || [];
