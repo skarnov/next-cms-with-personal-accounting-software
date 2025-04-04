@@ -21,7 +21,6 @@ class Expense {
 
       const offset = (page - 1) * pageSize;
 
-      // Get paginated expenses
       const [expenses] = await pool.query(
         `SELECT e.id, e.description, e.amount, e.currency, e.created_at, 
                 e.fk_wallet_id, w.name as wallet_name
@@ -34,7 +33,6 @@ class Expense {
         [userId, `%${search}%`, `%${search}%`, pageSize, offset]
       );
 
-      // Get total count (without LIMIT)
       const [totalCount] = await pool.query(
         `SELECT COUNT(*) as total 
          FROM expenses e

@@ -13,6 +13,7 @@ const DatePicker = dynamic(() => import("react-datepicker").then((mod) => mod.de
 });
 
 const PAGE_SIZE = 50;
+
 const CURRENCIES = [
   { code: "GBP", name: "British Pound", symbol: "£" },
   { code: "USD", name: "US Dollar", symbol: "$" },
@@ -36,9 +37,9 @@ const fetcher = async (url) => {
   return res.json();
 };
 
-export default function IncomesPage() {
-  const [hasMounted, setHasMounted] = useState(false);
+export default function incomesPage() {
   const { data: session } = useSession();
+  const [hasMounted, setHasMounted] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -93,7 +94,7 @@ export default function IncomesPage() {
     }
   );
 
-  const allIncomes = data ? data.flatMap((page) => page) : [];
+  const allIncomes = data ? data.flatMap((page) => page.data) : [];
   const isLoadingInitialData = !data && !error;
   const isLoadingMore = size > 0 && data && typeof data[size - 1] === "undefined";
   const isEmpty = data?.[0]?.data?.length === 0;
@@ -225,10 +226,7 @@ export default function IncomesPage() {
   };
 
   const confirmDelete = async () => {
-    if (!incomeToDelete?.id) {
-      setErrorMessage("Invalid income ID");
-      return;
-    }
+    if (!incomeToDelete) return;
 
     setIsDeleting(true);
     try {

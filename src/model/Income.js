@@ -20,6 +20,7 @@ class Income {
       }
 
       const offset = (page - 1) * pageSize;
+
       const [incomes] = await pool.query(
         `SELECT e.id, e.description, e.amount, e.currency, e.created_at, 
                 e.fk_wallet_id, w.name as wallet_name
@@ -32,7 +33,24 @@ class Income {
         [userId, `%${search}%`, `%${search}%`, pageSize, offset]
       );
 
-      return incomes.map((income) => this.sanitize(income));
+      const [totalCount] = await pool.query(
+        `SELECT COUNT(*) as total 
+         FROM incomes e
+         LEFT JOIN wallets w ON e.fk_wallet_id = w.id
+         WHERE e.created_by = ? AND e.deleted_at IS NULL
+         AND (e.description LIKE ? OR w.name LIKE ?)`,
+        [userId, `%${search}%`, `%${search}%`]
+      );
+
+      return {
+        data: incomes.map((income) => this.sanitize(income)),
+        pagination: {
+          page,
+          pageSize,
+          totalItems: totalCount[0].total,
+          totalPages: Math.ceil(totalCount[0].total / pageSize),
+        },
+      };
     } catch (error) {
       console.error("Income.findAll error:", {
         userId,
