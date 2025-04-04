@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiX, FiCheck, FiAlertTriangle, FiWallet } from "react-icons/fi";
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiX, FiCheck, FiAlertTriangle } from "react-icons/fi";
 import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
 import { useSession } from "next-auth/react";
@@ -12,14 +12,7 @@ const DatePicker = dynamic(() => import("react-datepicker").then((mod) => mod.de
   loading: () => <div className="w-full bg-gray-700 rounded-lg px-4 py-2 h-[42px] animate-pulse"></div>,
 });
 
-const PAGE_SIZE = 50;
-
-const CURRENCIES = [
-  { code: "GBP", name: "British Pound", symbol: "£" },
-  { code: "USD", name: "US Dollar", symbol: "$" },
-  { code: "BDT", name: "Bangladeshi Taka", symbol: "৳" },
-];
-
+const DEFAULT_PAGE_SIZE = 50;
 const DEFAULT_CURRENCY = "GBP";
 
 const fetcher = async (url) => {
@@ -37,13 +30,14 @@ const fetcher = async (url) => {
   return res.json();
 };
 
-export default function incomesPage() {
+export default function IncomesPage() {
   const { data: session } = useSession();
   const [hasMounted, setHasMounted] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentIncome, setCurrentIncome] = useState(null);
+  const [currency, setCurrency] = useState({ code: DEFAULT_CURRENCY, symbol: "£" });
   const [formData, setFormData] = useState({
     description: "",
     amount: "",
@@ -58,9 +52,30 @@ export default function incomesPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
+    document.title = "My Incomes";
+  }, []);
+
+  const { data: config } = useSWR("/api/config?name=paginate_rows&name=default_currency&name=currencies", fetcher);
+
+  useEffect(() => {
     setHasMounted(true);
     setFormData((prev) => ({ ...prev, date: new Date() }));
   }, []);
+
+  useEffect(() => {
+    if (config) {
+      const defaultCurrency = config.default_currency || DEFAULT_CURRENCY;
+      const currencies = config.currencies || [];
+      const currencyObj = currencies.find((c) => c.code === defaultCurrency) || {
+        code: defaultCurrency,
+        symbol: defaultCurrency,
+      };
+      setCurrency(currencyObj);
+      if (!currentIncome) {
+        setFormData((prev) => ({ ...prev, currency: defaultCurrency }));
+      }
+    }
+  }, [config, currentIncome]);
 
   useEffect(() => {
     const timerId = setTimeout(() => {
@@ -95,10 +110,11 @@ export default function incomesPage() {
   );
 
   const allIncomes = data ? data.flatMap((page) => page.data) : [];
+  const pageSize = config?.paginate_rows || DEFAULT_PAGE_SIZE;
   const isLoadingInitialData = !data && !error;
   const isLoadingMore = size > 0 && data && typeof data[size - 1] === "undefined";
   const isEmpty = data?.[0]?.data?.length === 0;
-  const isReachingEnd = isEmpty || (data && data[data.length - 1]?.data?.length < PAGE_SIZE);
+  const isReachingEnd = isEmpty || (data && data[data.length - 1]?.data?.length < pageSize);
 
   const { data: wallets, error: walletsError } = useSWR(session ? "/api/wallets" : null, fetcher);
 
@@ -127,9 +143,23 @@ export default function incomesPage() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, [loadMore]);
 
-  const formatCurrency = (amount, currencyCode = DEFAULT_CURRENCY) => {
-    const currencyObj = CURRENCIES.find((c) => c.code === currencyCode) || CURRENCIES[0];
-    return `${currencyObj.symbol}${parseFloat(amount).toFixed(2)}`;
+  const formatCurrency = (amount, currencyCode = currency.code) => {
+    const currencies = config?.currencies || [];
+    const currencyObj = currencies.find((c) => c.code === currencyCode) || {
+      code: currencyCode,
+      symbol: currencyCode,
+    };
+
+    if (!amount) return "-";
+    try {
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: currencyObj.code,
+        minimumFractionDigits: 2,
+      }).format(amount);
+    } catch (e) {
+      return `${currencyObj.symbol}${parseFloat(amount).toFixed(2)}`;
+    }
   };
 
   const formatDate = (dateString) => {
@@ -151,8 +181,8 @@ export default function incomesPage() {
     setFormData({
       description: "",
       amount: "",
-      walletId: null,
-      currency: DEFAULT_CURRENCY,
+      walletId: wallets?.[0]?.id || null,
+      currency: currency.code,
       date: new Date(),
     });
     setErrorMessage(null);
@@ -165,7 +195,7 @@ export default function incomesPage() {
       description: income.description,
       amount: income.amount.toString(),
       walletId: income.wallet_id || null,
-      currency: income.currency || DEFAULT_CURRENCY,
+      currency: income.currency || currency.code,
       date: new Date(income.created_at),
     });
     setIsModalOpen(true);
@@ -310,16 +340,7 @@ export default function incomesPage() {
                     <td className="px-6 py-4">
                       <div className="font-medium">{income.description}</div>
                     </td>
-                    <td className="px-6 py-4">
-                      {income.wallet_name ? (
-                        <div className="flex items-center text-gray-300">
-                          {FiWallet && <FiWallet className="mr-2" />}
-                          {income.wallet_name}
-                        </div>
-                      ) : (
-                        "-"
-                      )}
-                    </td>
+                    <td className="px-6 py-4">{income.wallet_name ? <div className="flex items-center text-gray-300">{income.wallet_name}</div> : "-"}</td>
                     <td className="px-6 py-4 text-right">
                       <div className={`font-medium ${income.amount < 0 ? "text-rose-400" : "text-lime-400"}`}>{formatCurrency(income.amount, income.currency)}</div>
                     </td>
@@ -373,7 +394,7 @@ export default function incomesPage() {
                       <label className="block text-sm font-medium text-gray-300 mb-1">Amount *</label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <span className="text-gray-400">{CURRENCIES.find((c) => c.code === formData.currency)?.symbol}</span>
+                          <span className="text-gray-400">{(config?.currencies || []).find((c) => c.code === formData.currency)?.symbol || formData.currency}</span>
                         </div>
                         <input type="number" name="amount" step="0.01" min="0.01" className="w-full bg-gray-700 border border-gray-600 rounded-lg pl-10 pr-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-white" value={formData.amount} onChange={handleInputChange} required disabled={isSubmitting} />
                       </div>
@@ -382,9 +403,9 @@ export default function incomesPage() {
                     <div>
                       <label className="block text-sm font-medium text-gray-300 mb-1">Currency *</label>
                       <select name="currency" className="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-lime-500 text-white" value={formData.currency} onChange={handleInputChange} disabled={isSubmitting}>
-                        {CURRENCIES.map((curr) => (
+                        {(config?.currencies || []).map((curr) => (
                           <option key={curr.code} value={curr.code}>
-                            {curr.name} ({curr.symbol})
+                            {curr.code} ({curr.symbol})
                           </option>
                         ))}
                       </select>
@@ -416,7 +437,6 @@ export default function incomesPage() {
                         <FiAlertTriangle />
                         <span>{errorMessage}</span>
                       </div>
-                      {error?.info?.details && <div className="mt-2 text-sm text-red-300">{error.info.details}</div>}
                     </div>
                   )}
 

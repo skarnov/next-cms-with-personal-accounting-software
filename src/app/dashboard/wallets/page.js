@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiX, FiCheck, FiAlertTriangle } from "react-icons/fi";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
@@ -38,13 +38,11 @@ export default function WalletsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const { data: wallets, error, mutate } = useSWR(session ? "/api/wallets" : null, fetcher);
-
   const filteredWallets = wallets?.filter((wallet) => wallet.name.toLowerCase().includes(searchTerm.toLowerCase())) || [];
 
-  // Premium icon styling
-  const actionButtonClass = "p-2 rounded-full transition-all duration-300";
-  const editButtonClass = `${actionButtonClass} text-blue-400 hover:text-white hover:bg-blue-500 hover:shadow-lg hover:scale-110`;
-  const deleteButtonClass = `${actionButtonClass} text-rose-400 hover:text-white hover:bg-rose-500 hover:shadow-lg hover:scale-110`;
+  useEffect(() => {
+    document.title = "My Wallets";
+  }, []);
 
   const openAddModal = () => {
     setCurrentWallet(null);
