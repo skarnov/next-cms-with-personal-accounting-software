@@ -1,7 +1,7 @@
 "use client";
 import { useSession, signOut } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, Suspense, useMemo } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { FiHome, FiTrendingUp, FiCreditCard, FiLogOut, FiFolder, FiTrendingDown, FiFileText, FiTag, FiMessageSquare, FiActivity, FiSettings } from "react-icons/fi";
 import { TbCashBanknote } from "react-icons/tb";
 import Link from "next/link";
@@ -115,7 +115,7 @@ export default function DashboardLayout({ children }) {
       </aside>
 
       <main className="flex-1 p-6">
-        <h2 className="text-2xl font-bold mt-4 text-white">
+        <h2 className="text-2xl font-bold mt-4 mb-4 text-white">
           Welcome, <span className="capitalize">{session?.user?.name || "Admin"}</span>
         </h2>
 
