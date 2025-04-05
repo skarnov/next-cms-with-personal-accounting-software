@@ -121,7 +121,7 @@ function FinanceCard({ title, value, icon, isPositive, changeText }) {
           <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
           <p className={`text-3xl font-bold ${valueColor}`}>£{Math.abs(value).toFixed(2)}</p>
         </div>
-        <span className="text-2xl p-2 rounded-lg bg-white shadow-xs">{icon}</span>
+        <span className="text-2xl p-2 rounded-lg bg-black shadow-xs">{icon}</span>
       </div>
       <p className="text-xs mt-2 text-gray-500">{changeText}</p>
     </div>
