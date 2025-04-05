@@ -8,6 +8,10 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    document.title = "Dashboard";
+  }, []);
+
+  useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
