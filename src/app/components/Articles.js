@@ -3,9 +3,8 @@ import ArticlesList from "./ArticlesList";
 
 async function fetchArticles(offset = 0, limit = 9) {
   try {
-    const baseURL = process.env.NEXT_PUBLIC_PUBLIC_URL || process.env.NEXT_PUBLIC_LOCAL_URL;
+    const baseURL = process.env.NEXT_PUBLIC_LOCAL_URL;
 
-    // Fetch articles with pagination
     const res = await fetch(`${baseURL}/api/articles?offset=${offset}&limit=${limit}`, {
       cache: "no-store",
     });
@@ -16,12 +15,12 @@ async function fetchArticles(offset = 0, limit = 9) {
     return data;
   } catch (error) {
     console.error("Error fetching articles:", error);
-    throw error; // Re-throw the error to be caught by the Error Boundary
+    throw error;
   }
 }
 
 async function ArticlesContent() {
-  const { articles, totalArticles } = await fetchArticles(); // Fetch data on the server
+  const { articles, totalArticles } = await fetchArticles();
 
   if (!articles || articles.length === 0) {
     return (

@@ -3,7 +3,7 @@ import ProjectsList from "./ProjectsList";
 
 async function fetchProjects(offset = 0, limit = 9) {
   try {
-    const baseURL = process.env.NEXT_PUBLIC_PUBLIC_URL || process.env.NEXT_PUBLIC_LOCAL_URL;
+    const baseURL = process.env.NEXT_PUBLIC_LOCAL_URL;
     const res = await fetch(`${baseURL}/api/projects?offset=${offset}&limit=${limit}`, {
       cache: "no-store",
     });
