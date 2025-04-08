@@ -1,42 +1,11 @@
-"use client";
+'use client';
 
-import { useState, useRef, useEffect } from "react";
-import Link from "next/link";
-import ViewMoreProjects from "./ViewMoreProjects";
-
-function ProjectCard({ project }) {
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleClick = () => {
-    setIsLoading(true);
-  };
-
-  return (
-    <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-transform hover:scale-105">
-      <img src={project.project_image} alt={project.project_name} className="w-full h-48 object-cover" />
-      <div className="p-6">
-        <h3 className="text-xl font-semibold text-white mb-2">{project.project_name}</h3>
-        <p className="text-gray-300 mb-4">{project.project_summary}</p>
-
-        <div className="flex flex-wrap gap-2 mb-4">
-          {project.tags?.map((tag) => (
-            <span key={tag.id} className="bg-gray-700 text-white px-3 py-1 rounded-full text-sm">
-              {tag.name}
-            </span>
-          ))}
-        </div>
-
-        <Link href={`/project/${project.project_slug}`} className="text-lime-500 hover:text-lime-400 font-semibold inline-block" onClick={handleClick}>
-          {isLoading ? "Loading..." : "View Project →"}
-        </Link>
-      </div>
-    </div>
-  );
-}
+import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 
 export default function ProjectsList({ initialProjects, totalProjects }) {
-  const [projects, setProjects] = useState(initialProjects);
-  const [visibleCount, setVisibleCount] = useState(9);
+  const [projects, setProjects] = useState(initialProjects || []);
+  const [visibleCount, setVisibleCount] = useState(Math.min(9, initialProjects?.length || 9));
   const [loading, setLoading] = useState(false);
   const projectsSectionRef = useRef(null);
 
@@ -48,13 +17,13 @@ export default function ProjectsList({ initialProjects, totalProjects }) {
     setLoading(true);
     try {
       const response = await fetch(`/api/projects?offset=${visibleCount}&limit=9`);
-      if (!response.ok) throw new Error("Failed to fetch projects");
-
+      if (!response.ok) throw new Error('Failed to fetch more projects');
       const data = await response.json();
-      setProjects((prevProjects) => [...prevProjects, ...data.projects]);
-      setVisibleCount((prevCount) => prevCount + 9);
+      
+      setProjects((prev) => [...prev, ...data.projects]);
+      setVisibleCount((prev) => prev + 9);
     } catch (error) {
-      console.error("Error fetching more projects:", error);
+      console.error('Error loading more projects:', error);
     } finally {
       setLoading(false);
     }
@@ -63,29 +32,61 @@ export default function ProjectsList({ initialProjects, totalProjects }) {
   const handleShowLess = () => {
     setProjects(initialProjects);
     setVisibleCount(9);
-    projectsSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+    projectsSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const visibleProjects = projects.slice(0, visibleCount);
+  const showViewMore = totalProjects > visibleCount;
 
   return (
     <>
-      {projects.length === 0 ? (
-        <p className="text-white text-center">No projects found.</p>
-      ) : (
-        <>
-          <div ref={projectsSectionRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {visibleProjects.map((project) => (
-              <ProjectCard key={project.project_id} project={project} />
-            ))}
-          </div>
+      <div ref={projectsSectionRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        {visibleProjects.map((project) => (
+          <div key={project.project_id} className="bg-gray-800 rounded-lg shadow-lg overflow-hidden hover:shadow-xl transition-transform hover:scale-105">
+            <img 
+              src={project.project_image} 
+              alt={project.project_name} 
+              className="w-full h-48 object-cover"
+              loading="lazy"
+            />
+            <div className="p-6">
+              <h3 className="text-xl font-semibold text-white mb-2">{project.project_name}</h3>
+              <p className="text-gray-300 mb-4">{project.project_summary}</p>
+              
+              <div className="flex flex-wrap gap-2 mb-4">
+                {project.tags?.map((tag) => (
+                  <span key={tag.id} className="bg-gray-700 text-white px-3 py-1 rounded-full text-sm">
+                    {tag.name}
+                  </span>
+                ))}
+              </div>
 
-          <div className="text-center text-white mt-4">
-            Showing {visibleProjects.length} of {totalProjects} projects
+              <Link 
+                href={`/project/${project.project_slug}`} 
+                className="text-lime-500 hover:text-lime-400 font-semibold inline-block"
+              >
+                View Project →
+              </Link>
+            </div>
           </div>
+        ))}
+      </div>
 
-          {totalProjects > 9 && <ViewMoreProjects showAll={visibleCount >= totalProjects} onClick={visibleCount >= totalProjects ? handleShowLess : handleViewMore} loading={loading} />}
-        </>
+      <div className="text-center text-white mt-4">
+        Showing {visibleProjects.length} of {totalProjects} projects
+      </div>
+
+      {showViewMore && (
+        <div className="text-center mt-8">
+          <button
+            onClick={visibleCount >= totalProjects ? handleShowLess : handleViewMore}
+            disabled={loading}
+            className="bg-lime-600 hover:bg-lime-700 text-white font-bold py-2 px-6 rounded-full transition-colors disabled:opacity-50"
+          >
+            {loading ? 'Loading...' : 
+             visibleCount >= totalProjects ? 'Show Less' : 'Load More Projects'}
+          </button>
+        </div>
       )}
     </>
   );
