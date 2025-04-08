@@ -1,4 +1,3 @@
-// src/components/Loading.js
 export default function Loading() {
     return (
       <section className="py-20 bg-gray-900">

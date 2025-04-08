@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import ProjectsList from './ProjectsList';
 
 async function fetchProjects(offset = 0, limit = 9) {
-  const baseURL = process.env.NEXT_PUBLIC_LOCAL_URL || '';
+  const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
   const res = await fetch(`${baseURL}/api/projects?offset=${offset}&limit=${limit}`);
   
   if (!res.ok) {
@@ -12,7 +12,7 @@ async function fetchProjects(offset = 0, limit = 9) {
   return await res.json();
 }
 
-export const revalidate = 3600; // Optional: Revalidate every hour
+export const revalidate = 3600;
 
 async function ProjectsContent() {
   const data = await fetchProjects();

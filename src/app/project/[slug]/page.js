@@ -3,7 +3,7 @@ import Link from "next/link";
 import RelatedProjectsSidebar from "../../components/RelatedProjectsSidebar";
 
 async function fetchProjectDetails(slug) {
-  const baseURL = process.env.NEXT_PUBLIC_PUBLIC_URL || process.env.NEXT_PUBLIC_LOCAL_URL;
+  const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
   const res = await fetch(`${baseURL}/api/projects/${slug}?includeRelated=true`, {
     cache: "no-store",
